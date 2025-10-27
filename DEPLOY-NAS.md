@@ -17,6 +17,12 @@ cp .env.nas.example .env.nas
 nano .env.nas  # Inserisci le tue password
 ```
 
+**Variabili da configurare:**
+- `NAS_SUDO_PASSWORD`: password sudo del NAS
+- `POSTGRES_PASSWORD`: password database PostgreSQL
+- `AUTH_USER`: username per autenticazione web
+- `AUTH_PASSWORD`: password per autenticazione web
+
 ## Deploy
 
 ### 1. Build e carica immagine
@@ -35,10 +41,10 @@ source .env.nas
 2. **Stacks > Add stack**
 3. **Nome**: spliit
 4. **Web editor**: copia il contenuto di `compose.portainer.yaml`
-5. **Sostituisci i placeholder** con le password reali:
-   - `YOUR_DB_PASSWORD_HERE` → password PostgreSQL
-   - `YOUR_AUTH_USER` → username autenticazione web
-   - `YOUR_AUTH_PASSWORD` → password autenticazione web
+5. **Sostituisci i placeholder** con le password da `.env.nas`:
+   - `YOUR_DB_PASSWORD_HERE` → valore di `POSTGRES_PASSWORD`
+   - `YOUR_AUTH_USER` → valore di `AUTH_USER`
+   - `YOUR_AUTH_PASSWORD` → valore di `AUTH_PASSWORD`
 6. **Deploy the stack**
 
 ## Accesso
@@ -64,6 +70,17 @@ source .env.nas
 # 4. In Portainer: Update the stack (riavvia container)
 ```
 
+## Sicurezza
+
+⚠️ **IMPORTANTE**: Le password NON sono committate su Git!
+
+- ✅ `.env.nas` contiene le password reali (gitignored)
+- ✅ `.env.nas.example` è il template pubblico
+- ✅ `compose.portainer.yaml` usa placeholder
+- ✅ `deploy-nas.sh` legge password da variabili d'ambiente
+
+**Non committare mai `.env.nas`!**
+
 ## Comandi utili sul NAS
 
 ```bash
@@ -71,8 +88,15 @@ source .env.nas
 ssh -p 2222 marco@home.ziliani.net 'sudo /usr/local/bin/docker logs -f spliit'
 
 # Restart (da Portainer o SSH)
-ssh -p 2222 marco@home.ziliani.net 'echo "YOUR_SUDO_PASSWORD" | sudo -S /usr/local/bin/docker restart spliit'
+source .env.nas
+ssh -p 2222 marco@home.ziliani.net "echo '$NAS_SUDO_PASSWORD' | sudo -S /usr/local/bin/docker restart spliit"
 
 # Lista immagini
 ssh -p 2222 marco@home.ziliani.net 'sudo /usr/local/bin/docker images | grep spliit'
+```
+
+## Architettura
+
+```
+Internet → Reverse Proxy NAS (3443) → Spliit Container (3000) → PostgreSQL (5432)
 ```
