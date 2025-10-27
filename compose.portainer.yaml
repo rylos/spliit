@@ -1,0 +1,43 @@
+name: spliit
+
+services:
+  db:
+    image: postgres:18
+    container_name: spliit_db
+    volumes:
+      - /volume1/docker/spliit:/var/lib/postgresql
+    environment:
+      - TZ=Europe/Rome
+      - POSTGRES_DB=spliit
+      - POSTGRES_USER=spliit
+      - POSTGRES_PASSWORD=YOUR_DB_PASSWORD_HERE
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U spliit -d spliit']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - spliit_network
+
+  spliit:
+    image: spliit:custom
+    container_name: spliit
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      - TZ=Europe/Rome
+      - POSTGRES_PRISMA_URL=postgresql://spliit:YOUR_DB_PASSWORD_HERE@db:5432/spliit
+      - POSTGRES_URL_NON_POOLING=postgresql://spliit:YOUR_DB_PASSWORD_HERE@db:5432/spliit
+      - AUTH_USER=YOUR_AUTH_USER
+      - AUTH_PASSWORD=YOUR_AUTH_PASSWORD
+    restart: always
+    networks:
+      - spliit_network
+
+networks:
+  spliit_network:
+    driver: bridge

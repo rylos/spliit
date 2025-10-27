@@ -66,3 +66,8 @@
 .landing-header strong {
   @apply font-bold text-transparent;
 }
+
+/* Hide footer */
+footer {
+  display: none !important;
+}
