@@ -32,6 +32,8 @@ services:
       - TZ=Europe/Rome
       - POSTGRES_PRISMA_URL=postgresql://spliit:YOUR_DB_PASSWORD_HERE@db:5432/spliit
       - POSTGRES_URL_NON_POOLING=postgresql://spliit:YOUR_DB_PASSWORD_HERE@db:5432/spliit
+      - BASE_URL=https://home.ziliani.net:3443
+      - DEFAULT_CURRENCY_CODE=EUR
       - AUTH_USER=YOUR_AUTH_USER
       - AUTH_PASSWORD=YOUR_AUTH_PASSWORD
     restart: always

@@ -1,97 +1,75 @@
 # Deploy Spliit su NAS Synology
 
+Stack gestito da **Dockhand**: `/volume1/docker/dockhand/stacks/NAS/spliit/docker-compose.yml`
+Dati PostgreSQL: `/volume1/docker/spliit`
+
 ## Setup iniziale (una volta sola)
 
-### 1. Crea directory sul NAS
-```bash
-ssh -p 2222 marco@home.ziliani.net
-sudo mkdir -p /volume1/docker/spliit
-sudo chown Marco:users /volume1/docker/spliit
-exit
-```
+1. Crea le directory sul NAS:
+   ```bash
+   ssh -p 2222 marco@home.ziliani.net
+   sudo mkdir -p /volume1/docker/spliit /volume1/docker/dockhand/stacks/NAS/spliit
+   sudo chown Marco:users /volume1/docker/spliit
+   ```
+2. Copia `compose.dockhand.yaml` in `/volume1/docker/dockhand/stacks/NAS/spliit/docker-compose.yml`
+   e sostituisci i placeholder (`YOUR_DB_PASSWORD_HERE`, `YOUR_AUTH_USER`, `YOUR_AUTH_PASSWORD`).
+3. Esegui `./deploy-nas.sh` (build, upload e avvio dello stack).
+4. In Dockhand: **Stacks → Import** → `/volume1/docker/dockhand/stacks/NAS/spliit`.
 
-### 2. Configura credenziali locali
-Crea il file `.env.nas` (già in .gitignore):
-```bash
-cp .env.nas.example .env.nas
-nano .env.nas  # Inserisci le tue password
-```
-
-**Variabili da configurare:**
-- `NAS_SUDO_PASSWORD`: password sudo del NAS
-- `POSTGRES_PASSWORD`: password database PostgreSQL
-- `AUTH_USER`: username per autenticazione web
-- `AUTH_PASSWORD`: password per autenticazione web
-
-## Deploy
-
-### 1. Build e carica immagine
+## Deploy / aggiornamento
 
 ```bash
-# Carica variabili d'ambiente
-source .env.nas
+# 1. Merge delle novità upstream
+git fetch upstream && git merge upstream/main
+# Conflitti tipici: .env.example, .gitignore, globals.css, middleware.ts
 
-# Esegui deploy
+# 2. Backup del database (consigliato se ci sono nuove migrazioni in prisma/migrations)
+ssh -p 2222 marco@home.ziliani.net \
+  'sudo /usr/local/bin/docker exec spliit_db pg_dump -U spliit spliit | gzip > /volume1/docker/spliit-backup/spliit-$(date +%F).sql.gz'
+
+# 3. Build + upload + restart stack (richiede il daemon Docker locale attivo)
+[ -f .env.nas ] && source .env.nas
 ./deploy-nas.sh
 ```
 
-### 2. Deploy con Portainer
+Le migrazioni Prisma vengono applicate automaticamente all'avvio del container.
+L'immagine precedente resta disponibile come `spliit:previous`.
 
-1. Apri Portainer sul NAS
-2. **Stacks > Add stack**
-3. **Nome**: spliit
-4. **Web editor**: copia il contenuto di `compose.portainer.yaml`
-5. **Sostituisci i placeholder** con le password da `.env.nas`:
-   - `YOUR_DB_PASSWORD_HERE` → valore di `POSTGRES_PASSWORD`
-   - `YOUR_AUTH_USER` → valore di `AUTH_USER`
-   - `YOUR_AUTH_PASSWORD` → valore di `AUTH_PASSWORD`
-6. **Deploy the stack**
+### Rollback
+
+```bash
+ssh -p 2222 marco@home.ziliani.net '
+  sudo /usr/local/bin/docker tag spliit:previous spliit:custom
+  cd /volume1/docker/dockhand/stacks/NAS/spliit && sudo /usr/local/bin/docker compose up -d'
+```
+
+Se una migrazione ha modificato i dati, ripristina anche il dump del database.
+
+## Configurazione runtime
+
+Variabili nel compose (non serve ricostruire l'immagine per cambiarle):
+
+- `BASE_URL` — URL pubblico (`https://home.ziliani.net:3443`)
+- `DEFAULT_CURRENCY_CODE` — valuta predefinita dei nuovi gruppi (`EUR`)
+- `AUTH_USER` / `AUTH_PASSWORD` — HTTP Basic Auth (middleware custom)
+- Opzionali: `ENABLE_EXPENSE_DOCUMENTS`, `ENABLE_RECEIPT_EXTRACT`, `ENABLE_CATEGORY_EXTRACT`,
+  `OPENAI_API_KEY` ecc. (vedi `.env.example`)
 
 ## Accesso
 
 - **URL**: https://home.ziliani.net:3443/
-- **Username**: (quello impostato in AUTH_USER)
-- **Password**: (quella impostata in AUTH_PASSWORD)
-
-> Il container espone la porta 3000, accessibile tramite reverse proxy su porta 3443
-
-## Aggiornamento
-
-```bash
-# 1. Pull ultime modifiche da upstream
-git pull upstream main
-
-# 2. Risolvi conflitti se necessari (globals.css, middleware.ts)
-
-# 3. Ricarica immagine
-source .env.nas
-./deploy-nas.sh
-
-# 4. In Portainer: Update the stack (riavvia container)
-```
+- Credenziali: `AUTH_USER` / `AUTH_PASSWORD` dello stack
 
 ## Sicurezza
 
-⚠️ **IMPORTANTE**: Le password NON sono committate su Git!
-
-- ✅ `.env.nas` contiene le password reali (gitignored)
-- ✅ `.env.nas.example` è il template pubblico
-- ✅ `compose.portainer.yaml` usa placeholder
-- ✅ `deploy-nas.sh` legge password da variabili d'ambiente
-
-**Non committare mai `.env.nas`!**
+⚠️ Le password NON vanno su Git: `compose.dockhand.yaml` usa placeholder, le password reali
+stanno solo nel compose sul NAS (ed eventualmente in `.env.nas`, gitignored).
 
 ## Comandi utili sul NAS
 
 ```bash
-# Logs
 ssh -p 2222 marco@home.ziliani.net 'sudo /usr/local/bin/docker logs -f spliit'
-
-# Restart (da Portainer o SSH)
-source .env.nas
-ssh -p 2222 marco@home.ziliani.net "echo '$NAS_SUDO_PASSWORD' | sudo -S /usr/local/bin/docker restart spliit"
-
-# Lista immagini
+ssh -p 2222 marco@home.ziliani.net 'sudo /usr/local/bin/docker restart spliit'
 ssh -p 2222 marco@home.ziliani.net 'sudo /usr/local/bin/docker images | grep spliit'
 ```
 

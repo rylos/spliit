@@ -1,32 +1,27 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Build e Upload Spliit su NAS Synology"
+echo "🚀 Build e deploy Spliit su NAS Synology"
 
 # Variabili
 NAS_HOST="${NAS_HOST:-home.ziliani.net}"
 NAS_PORT="${NAS_PORT:-2222}"
 NAS_USER="${NAS_USER:-marco}"
-NAS_SUDO_PASSWORD="${NAS_SUDO_PASSWORD:?Errore: imposta NAS_SUDO_PASSWORD}"
+STACK_DIR="${STACK_DIR:-/volume1/docker/dockhand/stacks/NAS/spliit}"
+DOCKER=/usr/local/bin/docker
 
 echo "📦 Build immagine Docker..."
 docker build -t spliit:custom .
 
-echo "💾 Salvataggio immagine..."
-docker save spliit:custom | gzip > /tmp/spliit-custom.tar.gz
+echo "📤 Upload e caricamento immagine su NAS..."
+docker save spliit:custom | gzip | ssh -p "$NAS_PORT" "$NAS_USER@$NAS_HOST" "
+  set -e
+  # Conserva l'immagine attuale per un eventuale rollback
+  sudo $DOCKER image inspect spliit:custom >/dev/null 2>&1 && sudo $DOCKER tag spliit:custom spliit:previous
+  gunzip | sudo $DOCKER load
+"
 
-echo "📤 Upload su NAS..."
-cat /tmp/spliit-custom.tar.gz | ssh -p $NAS_PORT $NAS_USER@$NAS_HOST "cat > /volume1/docker/spliit/spliit-custom.tar.gz"
+echo "🐳 Riavvio stack Dockhand..."
+ssh -p "$NAS_PORT" "$NAS_USER@$NAS_HOST" "cd '$STACK_DIR' && sudo $DOCKER compose up -d"
 
-echo "🐳 Caricamento immagine su Docker NAS..."
-ssh -p $NAS_PORT $NAS_USER@$NAS_HOST << EOF
-  cd /volume1/docker/spliit
-  echo '$NAS_SUDO_PASSWORD' | sudo -S /usr/local/bin/docker load < /volume1/docker/spliit/spliit-custom.tar.gz
-  rm /volume1/docker/spliit/spliit-custom.tar.gz
-EOF
-
-echo "✅ Immagine caricata con successo!"
-echo "📋 Ora usa Portainer per deployare lo stack con compose.portainer.yaml"
-
-# Pulizia locale
-rm /tmp/spliit-custom.tar.gz
+echo "✅ Deploy completato! Log: ssh -p $NAS_PORT $NAS_USER@$NAS_HOST 'sudo $DOCKER logs -f spliit'"
