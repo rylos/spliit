@@ -337,7 +337,7 @@
       "title": "Rimborsi suggeriti",
       "description": "Ecco alcuni suggerimenti per ottimizzare i rimborsi tra i partecipanti.",
       "noImbursements": "Sembra che il tuo gruppo non abbia bisogno di alcun rimborso 😁",
-      "owes": "<strong>{from}</strong> deve <strong>{to}</strong>",
+      "owes": "<strong>{from}</strong> deve a <strong>{to}</strong>",
       "markAsPaid": "Segna come pagato"
     }
   },
