@@ -55,4 +55,4 @@ postgres-data
 
 # IDE
 .amazonq/
-.serena/
+.serena/cache/
